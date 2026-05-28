@@ -1189,7 +1189,11 @@ class ConfigService:
             used_db_credentials = False
             used_env_credentials = False
 
-            logger.info(f"🔍 [TEST] Received API Key from config: {repr(api_key)} (type: {type(api_key).__name__}, length: {len(api_key) if api_key else 0})")
+            masked_api_key = self._truncate_api_key(api_key) if api_key else None
+            logger.info(
+                f"🔍 [TEST] Received API Key from config: {masked_api_key!r} "
+                f"(type: {type(api_key).__name__}, length: {len(api_key) if api_key else 0})"
+            )
 
             # 根据不同的数据源类型进行测试
             if ds_type == "tushare":
