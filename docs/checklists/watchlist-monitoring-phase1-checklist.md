@@ -54,9 +54,11 @@ Date: 2026-05-28
 - [ ] Daily scheduled scan is registered and visible in scheduler UI.
 - [ ] Reports include price/volume/trend evidence.
 - [ ] Reports include authoritative media evidence or explicit not-found status.
+- [x] Quote/K-line provider failure does not abort the whole ticker; reports can record explicit data gaps.
+- [x] Authoritative media/fundamental evidence can trigger a report even when live quote data is temporarily unavailable.
 - [ ] Reports include buy/hold/sell/risk recommendation depending on watchlist or held position.
 - [ ] No factual claim from an LLM is accepted without evidence metadata.
-- [ ] Duplicate alerts for the same ticker/signal/day are suppressed.
+- [x] Duplicate notifications for the same ticker/signal/day are suppressed by `monitoring_signals` upsert result.
 
 ## Residual Risks
 

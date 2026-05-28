@@ -14,7 +14,7 @@ from app.services.foreign_stock_service import ForeignStockService
 from app.services.historical_data_service import get_historical_data_service
 from app.services.monitoring.evidence_collector import EvidenceCollector
 from app.services.monitoring.report_builder import build_report
-from app.services.monitoring.signal_rules import evaluate_symbol
+from app.services.monitoring.signal_rules import evaluate_evidence_signal, evaluate_symbol, merge_signals
 from app.services.notifications_service import get_notifications_service
 from app.services.watchlist_service import watchlist_service
 from app.utils.timezone import now_tz
@@ -150,7 +150,7 @@ class WatchlistMonitorService:
         user_id: str,
         run_id: str,
         report: Dict[str, Any],
-    ) -> None:
+    ) -> bool:
         db = self._get_db()
         now = now_tz()
         signal_day = now.strftime("%Y-%m-%d")
@@ -169,8 +169,9 @@ class WatchlistMonitorService:
             "updated_at": now,
         }
 
+        is_new_signal = False
         try:
-            await db.monitoring_signals.update_one(
+            result = await db.monitoring_signals.update_one(
                 {
                     "user_id": user_id,
                     "symbol": report["symbol"],
@@ -180,6 +181,7 @@ class WatchlistMonitorService:
                 {"$set": signal_doc, "$setOnInsert": {"created_at": now}},
                 upsert=True,
             )
+            is_new_signal = bool(result.upserted_id)
         except Exception as e:
             logger.warning("Failed to upsert monitoring signal: %s", e)
 
@@ -200,6 +202,8 @@ class WatchlistMonitorService:
             evidence_docs.append(evidence_doc)
         if evidence_docs:
             await db.monitoring_evidence.insert_many(evidence_docs)
+
+        return is_new_signal
 
     async def _notify(self, user_id: str, report: Dict[str, Any]) -> None:
         severity = report.get("severity", "info")
@@ -251,17 +255,30 @@ class WatchlistMonitorService:
             symbol = target["symbol"]
             market = target["market"]
             try:
-                quote = await self._get_quote(market, symbol, request.force_refresh)
-                klines = await self._get_klines(market, symbol, request.lookback_days, request.force_refresh)
+                data_gaps: List[str] = []
+                quote: Dict[str, Any] = {}
+                klines: List[Dict[str, Any]] = []
+
+                try:
+                    quote = await self._get_quote(market, symbol, request.force_refresh)
+                except Exception as e:
+                    gap = f"行情数据获取失败：{e}"
+                    logger.warning("Monitoring quote unavailable for %s:%s: %s", market, symbol, e)
+                    data_gaps.append(gap)
+
+                try:
+                    klines = await self._get_klines(market, symbol, request.lookback_days, request.force_refresh)
+                except Exception as e:
+                    gap = f"K线数据获取失败：{e}"
+                    logger.warning("Monitoring kline unavailable for %s:%s: %s", market, symbol, e)
+                    data_gaps.append(gap)
                 has_position = bool(target.get("position"))
-                signal = evaluate_symbol(
+                price_signal = evaluate_symbol(
                     quote=quote,
                     klines=klines,
                     has_position=has_position,
                     position=target.get("position"),
                 )
-                if not signal.get("triggered"):
-                    continue
 
                 evidence = await self.evidence_collector.collect_news_evidence(
                     symbol=symbol,
@@ -271,6 +288,11 @@ class WatchlistMonitorService:
                     force_refresh=request.force_refresh,
                     db=db,
                 )
+                evidence_signal = evaluate_evidence_signal(evidence=evidence, has_position=has_position)
+                signal = merge_signals(price_signal, evidence_signal)
+                if not signal.get("triggered"):
+                    continue
+
                 report = build_report(
                     symbol=symbol,
                     stock_name=target.get("stock_name") or quote.get("name") or symbol,
@@ -278,9 +300,11 @@ class WatchlistMonitorService:
                     signal=signal,
                     evidence=evidence,
                     has_position=has_position,
+                    data_gaps=data_gaps,
                 )
-                await self._persist_report(user_id=user_id, run_id=run_id, report=report)
-                await self._notify(user_id, report)
+                is_new_signal = await self._persist_report(user_id=user_id, run_id=run_id, report=report)
+                if is_new_signal:
+                    await self._notify(user_id, report)
                 reports.append(report)
             except Exception as e:
                 logger.exception("Monitoring failed for %s:%s", market, symbol)

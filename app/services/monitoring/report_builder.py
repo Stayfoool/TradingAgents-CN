@@ -1,7 +1,7 @@
 """
 Build deterministic monitoring report summaries from evidence.
 """
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 def _evidence_titles(evidence: List[Dict[str, Any]]) -> List[str]:
@@ -40,6 +40,7 @@ def build_report(
     signal: Dict[str, Any],
     evidence: List[Dict[str, Any]],
     has_position: bool,
+    data_gaps: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     metrics = signal.get("metrics", {})
     signal_type = signal.get("signal_type", "no_action")
@@ -55,6 +56,17 @@ def build_report(
         summary_lines.append("主要触发原因：" + "；".join(reasons[:4]))
     if evidence_titles:
         summary_lines.append("媒体证据：" + "；".join(evidence_titles[:3]))
+    if data_gaps:
+        summary_lines.append("数据缺口：" + "；".join(data_gaps[:3]))
+
+    merged_data_gaps = [
+        item.get("reason")
+        for item in evidence
+        if item.get("status") == "not_found" and item.get("reason")
+    ]
+    for gap in data_gaps or []:
+        if gap and gap not in merged_data_gaps:
+            merged_data_gaps.append(gap)
 
     return {
         "symbol": symbol,
@@ -69,9 +81,5 @@ def build_report(
         "evidence": evidence,
         "recommendation": recommendation,
         "has_position": has_position,
-        "data_gaps": [
-            item.get("reason")
-            for item in evidence
-            if item.get("status") == "not_found" and item.get("reason")
-        ],
+        "data_gaps": merged_data_gaps,
     }
