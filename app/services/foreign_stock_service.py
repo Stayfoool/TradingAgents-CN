@@ -186,6 +186,7 @@ class ForeignStockService:
             # 🔥 只有这些是有效的数据源名称
             source_handlers = {
                 'yahoo_finance': ('yfinance', self._get_hk_quote_from_yfinance),
+                'yfinance': ('yfinance', self._get_hk_quote_from_yfinance),
                 'akshare': ('akshare', self._get_hk_quote_from_akshare),
             }
 
@@ -357,6 +358,7 @@ class ForeignStockService:
             source_handlers = {
                 'alpha_vantage': ('alpha_vantage', self._get_us_quote_from_alpha_vantage),
                 'yahoo_finance': ('yfinance', self._get_us_quote_from_yfinance),
+                'yfinance': ('yfinance', self._get_us_quote_from_yfinance),
                 'finnhub': ('finnhub', self._get_us_quote_from_finnhub),
             }
 
@@ -555,6 +557,7 @@ class ForeignStockService:
         source_handlers = {
             'akshare': ('akshare', self._get_hk_info_from_akshare),
             'yahoo_finance': ('yfinance', self._get_hk_info_from_yfinance),
+            'yfinance': ('yfinance', self._get_hk_info_from_yfinance),
             'finnhub': ('finnhub', self._get_hk_info_from_finnhub),
         }
 
@@ -634,6 +637,7 @@ class ForeignStockService:
         source_handlers = {
             'alpha_vantage': ('alpha_vantage', self._get_us_info_from_alpha_vantage),
             'yahoo_finance': ('yfinance', self._get_us_info_from_yfinance),
+            'yfinance': ('yfinance', self._get_us_info_from_yfinance),
             'finnhub': ('finnhub', self._get_us_info_from_finnhub),
         }
 
@@ -738,6 +742,7 @@ class ForeignStockService:
         source_handlers = {
             'akshare': ('akshare', self._get_hk_kline_from_akshare),
             'yahoo_finance': ('yfinance', self._get_hk_kline_from_yfinance),
+            'yfinance': ('yfinance', self._get_hk_kline_from_yfinance),
             'finnhub': ('finnhub', self._get_hk_kline_from_finnhub),
         }
 
@@ -815,6 +820,7 @@ class ForeignStockService:
         source_handlers = {
             'alpha_vantage': ('alpha_vantage', self._get_us_kline_from_alpha_vantage),
             'yahoo_finance': ('yfinance', self._get_us_kline_from_yfinance),
+            'yfinance': ('yfinance', self._get_us_kline_from_yfinance),
             'finnhub': ('finnhub', self._get_us_kline_from_finnhub),
         }
 
@@ -1834,4 +1840,3 @@ class ForeignStockService:
         except Exception as e:
             logger.warning(f"⚠️ AKShare获取港股新闻失败: {e}")
             raise
-
