@@ -25,11 +25,12 @@ Date: 2026-05-28
 
 - [x] Python syntax check passed for changed Python files with `python3 -m compileall`.
 - [x] Huawei Cloud backend was rebuilt from the same code changes and health check passed.
-- [ ] Changes pushed to GitHub fork.
-- [ ] Huawei Cloud repository remote switched to the personal fork.
-- [ ] Huawei Cloud repository checked out to `dev/custom-stock-agent`.
+- [x] Changes pushed to GitHub fork.
+- [x] Huawei Cloud repository remote switched to the personal fork.
+- [x] Huawei Cloud repository checked out to `dev/custom-stock-agent`.
 
 ## Residual Risks
 
-- GitHub CLI token is currently invalid locally, so pushing may require browser or credential authorization.
 - GitHub SSH from this network is blocked, so HTTPS remotes are used.
+- Huawei Cloud fetch from GitHub over HTTPS may be unstable; a local Git bundle was used once to seed `origin/dev/custom-stock-agent`.
+- Huawei Cloud still has an untracked backup file: `Dockerfile.backend.upstream`.
