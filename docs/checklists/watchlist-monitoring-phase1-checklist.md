@@ -50,19 +50,31 @@ Date: 2026-05-28
 
 ## Acceptance Criteria
 
-- [ ] Manual watchlist scan works in deployed backend.
-- [ ] Daily scheduled scan is registered and visible in scheduler UI.
+- [x] Manual watchlist scan works in deployed backend.
+- [x] Daily scheduled scan is registered in the deployed backend.
+- [ ] Daily scheduled scan is visible in scheduler UI.
 - [ ] Reports include price/volume/trend evidence.
-- [ ] Reports include authoritative media evidence or explicit not-found status.
+- [x] Reports include authoritative media evidence or explicit not-found status.
 - [x] Quote/K-line provider failure does not abort the whole ticker; reports can record explicit data gaps.
 - [x] Authoritative media/fundamental evidence can trigger a report even when live quote data is temporarily unavailable.
-- [ ] Reports include buy/hold/sell/risk recommendation depending on watchlist or held position.
-- [ ] No factual claim from an LLM is accepted without evidence metadata.
+- [x] Reports include buy/hold/sell/risk recommendation depending on watchlist or held position.
+- [x] No factual claim from an LLM is accepted without evidence metadata.
 - [x] Duplicate notifications for the same ticker/signal/day are suppressed by `monitoring_signals` upsert result.
+
+## Deployed Verification
+
+- [x] Backend rebuilt on Huawei Cloud from commit `2cd5a02` with `docker compose -f docker-compose.hub.nginx.yml -f docker-compose.localbuild.yml -f docker-compose.security.yml up -d --build backend`.
+- [x] Backend health check passed with `curl -fsS http://127.0.0.1/api/health`, returning `status=ok`, `version=0.1.16`.
+- [x] Scheduler startup log contains `Watchlist 自动监控已配置: 每日 16:30` and `Added job "Watchlist 自动监控（每日）"`.
+- [x] SNOW smoke run with a temporary watchlist item and Benzinga-attributed evidence returned `target_count=1`, `report_count=1`, `error_count=0`.
+- [x] SNOW smoke report stored `signal_type=buy_watch`, `severity=warning`, `evidence_count=1`, `signal_count=1`, `notification_count=1`.
+- [x] SNOW smoke report recorded the live quote data gap: `行情数据获取失败：无法获取美股SNOW的行情数据：所有数据源均失败`.
+- [x] Duplicate smoke run created two report records for audit history but kept `signal_count=1` and `notification_count=1`.
+- [x] Temporary smoke test watchlist, monitoring, notification, and `codex_smoke` news data were removed after verification.
 
 ## Residual Risks
 
 - News provider API quality, cost, and delay are not yet tested.
-- US equities need a reliable quote/fundamental source configured before strong automated monitoring.
+- US equities need a reliable quote/fundamental source configured before strong price/trend monitoring. Current server status: Yahoo/yfinance is rate-limited or DNS-failing, Alpha Vantage API key is not configured, and the configured Finnhub key returns 401 invalid key.
 - A-share announcement and media evidence need separate weighting from US equities.
 - Local `pytest` was unavailable through system Python, and `uv run` failed because the upstream optional `qianfan` dependency is unsatisfiable for one supported Python split. Pure-function checks and compile checks were run locally.
