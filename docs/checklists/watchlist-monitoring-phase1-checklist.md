@@ -1,0 +1,65 @@
+# Watchlist Monitoring Phase 1 Checklist
+
+Date: 2026-05-28
+
+## User Requirements
+
+- [x] Support proactive monitoring while the server is running.
+- [x] If resources are limited, support at least one daily scan.
+- [x] Start with watchlist if full-market monitoring is too expensive.
+- [x] Include buy-side and sell-side recommendations.
+- [x] Include price movement, fundamentals, industry, announcements, and media/news evidence.
+- [x] Trigger reasons must include authoritative media reports where available.
+- [x] Preserve source attribution for facts such as revenue surprise and guidance.
+
+## Local Project Capabilities Checked
+
+- [x] Scheduler exists: `app/main.py`, `app/services/scheduler_service.py`, `app/routers/scheduler.py`.
+- [x] Notifications exist: `app/services/notifications_service.py`, `app/models/notification.py`, `app/routers/notifications.py`.
+- [x] Screening exists: `app/routers/screening.py`, `app/services/enhanced_screening_service.py`.
+- [x] News storage/query exists: `app/services/news_data_service.py`, `app/routers/news_data.py`.
+- [x] Quote ingestion exists: `app/services/quotes_ingestion_service.py`.
+- [x] Analysis reports exist through existing analysis services and `analysis_reports`.
+
+## External Source Rules
+
+- [x] Prefer official provider documentation for APIs.
+- [x] Treat unofficial scraping of news sites as out of scope for phase 1.
+- [x] Record source URL and provenance for every factual media claim.
+
+## External Sources Checked
+
+- [x] Alpha Vantage documentation URL recorded.
+- [x] Benzinga News API documentation URL recorded.
+- [x] Finnhub Company News documentation URL recorded.
+- [x] Finnhub Earnings Calendar documentation URL recorded.
+- [ ] API keys and actual response formats verified in the deployed environment.
+- [ ] Zacks official API availability verified. Do not implement Zacks scraping until this is resolved.
+
+## Planned Implementation Items
+
+- [ ] Add watchlist CRUD.
+- [ ] Add portfolio/position CRUD.
+- [ ] Add monitoring run service.
+- [ ] Add signal rule engine.
+- [ ] Add evidence collector with authoritative-media scoring.
+- [ ] Add report builder with source-cited facts.
+- [ ] Register daily scheduler job.
+- [ ] Add notification creation for high-priority signals.
+- [ ] Add minimal UI for watchlist and monitoring reports.
+
+## Acceptance Criteria
+
+- [ ] Manual watchlist scan works.
+- [ ] Daily scheduled scan works.
+- [ ] Reports include price/volume/trend evidence.
+- [ ] Reports include authoritative media evidence or explicit not-found status.
+- [ ] Reports include buy/hold/sell/risk recommendation depending on watchlist or held position.
+- [ ] No factual claim from an LLM is accepted without evidence metadata.
+- [ ] Duplicate alerts for the same ticker/signal/day are suppressed.
+
+## Residual Risks
+
+- News provider API quality, cost, and delay are not yet tested.
+- US equities need a reliable quote/fundamental source configured before strong automated monitoring.
+- A-share announcement and media evidence need separate weighting from US equities.
