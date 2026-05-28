@@ -38,20 +38,20 @@ Date: 2026-05-28
 
 ## Planned Implementation Items
 
-- [ ] Add watchlist CRUD.
-- [ ] Add portfolio/position CRUD.
-- [ ] Add monitoring run service.
-- [ ] Add signal rule engine.
-- [ ] Add evidence collector with authoritative-media scoring.
-- [ ] Add report builder with source-cited facts.
-- [ ] Register daily scheduler job.
-- [ ] Add notification creation for high-priority signals.
+- [x] Add watchlist CRUD.
+- [x] Add portfolio/position CRUD.
+- [x] Add monitoring run service.
+- [x] Add signal rule engine.
+- [x] Add evidence collector with authoritative-media scoring.
+- [x] Add report builder with source-cited facts.
+- [x] Register daily scheduler job.
+- [x] Add notification creation for high-priority signals.
 - [ ] Add minimal UI for watchlist and monitoring reports.
 
 ## Acceptance Criteria
 
-- [ ] Manual watchlist scan works.
-- [ ] Daily scheduled scan works.
+- [ ] Manual watchlist scan works in deployed backend.
+- [ ] Daily scheduled scan is registered and visible in scheduler UI.
 - [ ] Reports include price/volume/trend evidence.
 - [ ] Reports include authoritative media evidence or explicit not-found status.
 - [ ] Reports include buy/hold/sell/risk recommendation depending on watchlist or held position.
@@ -63,3 +63,4 @@ Date: 2026-05-28
 - News provider API quality, cost, and delay are not yet tested.
 - US equities need a reliable quote/fundamental source configured before strong automated monitoring.
 - A-share announcement and media evidence need separate weighting from US equities.
+- Local `pytest` was unavailable through system Python, and `uv run` failed because the upstream optional `qianfan` dependency is unsatisfiable for one supported Python split. Pure-function checks and compile checks were run locally.

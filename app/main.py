@@ -28,7 +28,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.core.database import init_db, close_db
 from app.core.logging_config import setup_logging
-from app.routers import auth_db as auth, analysis, screening, queue, sse, health, favorites, config, reports, database, operation_logs, tags, tushare_init, akshare_init, baostock_init, historical_data, multi_period_sync, financial_data, news_data, social_media, internal_messages, usage_statistics, model_capabilities, cache, logs
+from app.routers import auth_db as auth, analysis, screening, queue, sse, health, favorites, config, reports, database, operation_logs, tags, tushare_init, akshare_init, baostock_init, historical_data, multi_period_sync, financial_data, news_data, social_media, internal_messages, usage_statistics, model_capabilities, cache, logs, watchlist, monitoring
 from app.routers import sync as sync_router, multi_source_sync
 from app.routers import stocks as stocks_router
 from app.routers import stock_data as stock_data_router
@@ -68,6 +68,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from app.services.quotes_ingestion_service import QuotesIngestionService
+from app.services.monitoring.watchlist_monitor_service import watchlist_monitor_service
 from app.routers import paper as paper_router
 
 
@@ -569,6 +570,34 @@ async def lifespan(app: FastAPI):
         else:
             logger.info(f"📰 新闻数据同步已配置（仅自选股）: {settings.NEWS_SYNC_CRON}")
 
+        async def run_watchlist_monitor_daily():
+            """Run watchlist monitoring for all active users."""
+            try:
+                from app.models.watchlist import MonitoringRunRequest
+                from app.core.database import get_mongo_db
+
+                db = get_mongo_db()
+                cursor = db.users.find({"is_active": {"$ne": False}}, {"_id": 1, "username": 1})
+                user_count = 0
+                async for user_doc in cursor:
+                    user_count += 1
+                    user_id = str(user_doc.get("_id"))
+                    await watchlist_monitor_service.run_for_user(
+                        user_id,
+                        MonitoringRunRequest(max_deep_analysis=10, lookback_days=30, news_days=7)
+                    )
+                logger.info(f"✅ Watchlist monitoring daily job completed for {user_count} users")
+            except Exception as e:
+                logger.error(f"❌ Watchlist monitoring daily job failed: {e}", exc_info=True)
+
+        scheduler.add_job(
+            run_watchlist_monitor_daily,
+            CronTrigger(hour=16, minute=30, timezone=settings.TIMEZONE),
+            id="watchlist_monitor_daily",
+            name="Watchlist 自动监控（每日）"
+        )
+        logger.info("📡 Watchlist 自动监控已配置: 每日 16:30")
+
         scheduler.start()
 
         # 设置调度器实例到服务中，以便API可以管理任务
@@ -728,6 +757,9 @@ app.include_router(financial_data.router, tags=["financial-data"])
 app.include_router(news_data.router, tags=["news-data"])
 app.include_router(social_media.router, tags=["social-media"])
 app.include_router(internal_messages.router, tags=["internal-messages"])
+app.include_router(watchlist.router)
+app.include_router(watchlist.portfolio_router)
+app.include_router(monitoring.router)
 
 
 @app.get("/")
