@@ -1,3 +1,5 @@
+/// <reference types="vitest" />
+
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
@@ -5,12 +7,21 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
+const isTest = process.env.VITEST === 'true' || process.env.NODE_ENV === 'test'
+const elementPlusResolver = ElementPlusResolver({ importStyle: isTest ? false : 'css' })
+
 // https://vitejs.dev/config/
 export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    setupFiles: ['src/test/setup.ts']
+  },
   plugins: [
     vue(),
     AutoImport({
-      resolvers: [ElementPlusResolver()],
+      resolvers: [elementPlusResolver],
       imports: [
         'vue',
         'vue-router',
@@ -24,7 +35,7 @@ export default defineConfig({
     }),
     // 自动按需组件导入
     Components({
-      resolvers: [ElementPlusResolver()],
+      resolvers: [elementPlusResolver],
       dts: true
     })
   ],

@@ -10,7 +10,12 @@ on:
       - "app/**"
       - "tradingagents/**"
       - "frontend/**"
+      - "tests/quality/**"
       - "scripts/validation/**"
+      - "requirements-quality.txt"
+      - "docker-compose.staging.yml"
+      - "docs/checklists/quality-gates-checklist.md"
+      - "docs/quality/**"
       - "Dockerfile*"
       - "pyproject.toml"
       - "README.md"
@@ -41,12 +46,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+          cache: pip
+          cache-dependency-path: requirements-quality.txt
+
+      - name: Install quality dependencies
+        run: python -m pip install --requirement requirements-quality.txt
+
+      - name: Compile monitoring quality gate
+        run: python -m py_compile scripts/validation/monitoring_quality_gate.py
 
       - name: Run monitoring quality gate
         run: python scripts/validation/monitoring_quality_gate.py
 
+      - name: Run backend quality tests
+        run: python -m pytest -q tests/quality
+
   frontend-build:
-    name: Frontend type-check and build
+    name: Frontend type-check, tests, and build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -78,8 +94,47 @@ jobs:
       - name: Type-check frontend
         run: yarn type-check
 
+      - name: Run frontend unit tests
+        run: yarn test:unit
+
       - name: Build frontend assets
         run: yarn vite build
+
+  frontend-e2e:
+    name: Frontend Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      COREPACK_ENABLE_AUTO_PIN: "0"
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile --production=false --network-timeout 300000
+
+      - name: Install Playwright browser
+        run: yarn playwright install --with-deps chromium
+
+      - name: Run Playwright monitoring flow
+        run: yarn test:e2e
 
   frontend-docker-build:
     name: Frontend Docker build
@@ -87,6 +142,7 @@ jobs:
     timeout-minutes: 20
     needs:
       - frontend-build
+      - frontend-e2e
 
     steps:
       - name: Checkout

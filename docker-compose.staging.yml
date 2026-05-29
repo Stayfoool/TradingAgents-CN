@@ -1,0 +1,46 @@
+name: tradingagents-staging
+
+services:
+  mongodb:
+    container_name: tradingagents-staging-mongodb
+    ports: !reset []
+    volumes:
+      - tradingagents_staging_mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: tradingagentscn_staging
+
+  redis:
+    container_name: tradingagents-staging-redis
+    ports: !reset []
+    volumes:
+      - tradingagents_staging_redis_data:/data
+
+  backend:
+    container_name: tradingagents-staging-backend
+    volumes:
+      - ./logs/staging:/app/logs
+      - ./data/staging:/app/data
+    environment:
+      TRADINGAGENTS_LOG_DIR: "/app/logs"
+      TRADINGAGENTS_LOG_FILE: "/app/logs/tradingagents-staging.log"
+      MONGODB_DATABASE: "tradingagentscn_staging"
+      MONGODB_URL: "mongodb://admin:tradingagents123@mongodb:27017/tradingagentscn_staging?authSource=admin"
+      MONGODB_CONNECTION_STRING: "mongodb://admin:tradingagents123@mongodb:27017/tradingagentscn_staging?authSource=admin"
+      REDIS_URL: "redis://:tradingagents123@redis:6379/1"
+      REDIS_DB: "1"
+      JWT_SECRET: "staging-jwt-secret-change-before-public-exposure"
+      CSRF_SECRET: "staging-csrf-secret-change-before-public-exposure"
+
+  frontend:
+    container_name: tradingagents-staging-frontend
+
+  nginx:
+    container_name: tradingagents-staging-nginx
+    ports:
+      - "8080:80"
+
+volumes:
+  tradingagents_staging_mongodb_data:
+    driver: local
+  tradingagents_staging_redis_data:
+    driver: local
