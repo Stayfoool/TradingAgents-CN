@@ -115,6 +115,28 @@ const routes: RouteRecordRaw[] = [
     ]
   },
   {
+    path: '/monitoring',
+    name: 'Monitoring',
+    component: () => import('@/layouts/BasicLayout.vue'),
+    meta: {
+      title: '自动监控',
+      icon: 'Monitor',
+      requiresAuth: true,
+      transition: 'slide-up'
+    },
+    children: [
+      {
+        path: '',
+        name: 'MonitoringHome',
+        component: () => import('@/views/Monitoring/index.vue'),
+        meta: {
+          title: '自动监控',
+          requiresAuth: true
+        }
+      }
+    ]
+  },
+  {
     path: '/learning',
     name: 'Learning',
     component: () => import('@/layouts/BasicLayout.vue'),

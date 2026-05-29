@@ -42,6 +42,11 @@
       <template #title>我的自选股</template>
     </el-menu-item>
 
+    <el-menu-item index="/monitoring">
+      <el-icon><Monitor /></el-icon>
+      <template #title>自动监控</template>
+    </el-menu-item>
+
     <el-menu-item index="/paper">
       <el-icon><CreditCard /></el-icon>
       <template #title>模拟交易</template>
@@ -108,6 +113,7 @@ import {
   TrendCharts,
   Search,
   Star,
+  Monitor,
   List,
   /* Document 移除：不再使用顶级分析报告菜单图标 */
   Setting,
