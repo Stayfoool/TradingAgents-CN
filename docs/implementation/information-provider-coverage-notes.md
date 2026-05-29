@@ -17,6 +17,33 @@
 
 ## 样例事件
 
+### AKShare 实测结果
+
+测试环境：
+
+- 日期：2026-05-29
+- 服务器：华为云 `tradingagents-backend` 容器
+- AKShare 版本：1.18.64
+- 验证脚本：`scripts/verify_akshare_event_coverage.py`
+- 关键词：`MiniMax`、`minimax`、`戴尔`、`Dell`、`DELL`
+
+测试结论：
+
+- `stock_info_global_em` 命中戴尔相关快讯，包括“戴尔科技美股盘前大涨超39%”和投行上调目标价。
+- `stock_info_global_sina` 命中戴尔目标价调整快讯。
+- `stock_info_global_futu` 命中戴尔目标价调整快讯。
+- `stock_financial_us_report_em(stock="DELL", symbol="综合损益表", indicator="单季报")` 可返回 DELL 最新单季报结构化财务数据，包含 2026/Q1 主营收入等字段。
+- `stock_financial_us_report_em` 的资产负债表和现金流量表也可返回 DELL 单季报结构化数据。
+- 测试范围内未命中 MiniMax 业务数据披露。
+- `stock_info_global_cls(symbol="全部")` 在本次测试中超时。
+- `stock_us_spot_em`、`stock_us_famous_spot_em` 在本次测试中连接失败。
+
+含义：
+
+- AKShare 对 Dell 这种被主流财经源转载的美股事件有一定覆盖，且可取到部分结构化财报数据。
+- AKShare 未证明能覆盖 MiniMax 这类公司业务数据披露。
+- AKShare 可作为低成本验证和补充源，但不能作为重大事件主信息源。
+
 ### Dell Technologies 季报与盘后异动
 
 事件：2026-05-28，Dell Technologies 发布截至 2026-05-01 的 2027 财年第一财季报告，中文媒体报道其盘后股价一度大涨近 40%，市值约 2059 亿美元。
