@@ -25,6 +25,58 @@
 
 建议不要直接只用 ChromaDB 做唯一存储。MongoDB 做权威结构化知识库，ChromaDB 做语义检索索引。
 
+## 与 Paperclip AI 架构的关系
+
+Paperclip AI 的公开定位更接近“AI agent 公司/团队的控制平面”。它通过 agent、组织结构、适配器、任务、审批、预算等机制协调 Claude、Codex、OpenCode、Gemini 等不同 agent runtime。
+
+本项目不需要引入开发型 agent，也不需要让 Codex/OpenCode 参与投资判断。但 Paperclip 的以下架构思想值得借鉴：
+
+- 控制平面：把多个智能体、任务、状态、审批、成本和输出统一管理。
+- 角色分工：每个 agent 有明确职责、权限和汇报关系。
+- 适配器层：控制平面不直接绑定某个模型，而是通过 adapter 调用不同 agent 或模型服务。
+- 审批机制：关键动作必须等待用户或上级 agent 审批。
+- 运行日志：每个 agent 的输入、输出、决策和成本都要记录。
+- 心跳/定时任务：agent 可以定期检查任务状态、市场数据和复盘结果。
+
+但以下部分不建议照搬：
+
+- 不使用 Codex/OpenCode 作为股票分析运行时核心。这些是 coding agent，权限和执行模型更适合写代码、跑命令和改文件。
+- 不建立“自我经营公司式”的完全自治组织。投资系统必须以数据、审计和人类审批为中心。
+- 不让 agent 自行创造长期记忆并立即影响交易。所有用户知识和复盘结论必须可见、可确认、可失效。
+- 不让多 agent 无限制讨论。股票监控需要成本、时效和证据约束。
+
+适合本项目的借鉴方式是：做一个轻量的“投资智能体控制平面”，而不是部署完整 Paperclip。
+
+```text
+用户对话 / 定时监控 / 单股分析请求
+  -> 投资控制平面 Investment Orchestrator
+    -> 用户知识抽取 Agent
+    -> 用户知识检索 Agent
+    -> 行情/公告/新闻证据 Agent
+    -> 技术面 Agent
+    -> 基本面 Agent
+    -> 多空辩论 Agent
+    -> 风险审计 Agent
+    -> 交易审批 Agent
+  -> 报告、提醒、待审批交易
+```
+
+控制平面需要统一管理：
+
+- `task_id`
+- `agent_role`
+- `input_context`
+- `tools_allowed`
+- `retrieved_user_rules`
+- `evidence_refs`
+- `agent_output`
+- `audit_result`
+- `human_approval_status`
+- `cost/tokens`
+- `created_at/finished_at`
+
+因此，Paperclip 对本项目的价值不是“拿来替换 TradingAgents-CN”，而是启发我们把当前 TradingAgents 图结构、用户知识库、审计模型和监控任务收束到一个更清晰的任务/角色/审批体系里。
+
 ## 典型输入示例
 
 用户输入：
