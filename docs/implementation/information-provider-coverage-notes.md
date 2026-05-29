@@ -44,6 +44,40 @@
 - AKShare 未证明能覆盖 MiniMax 这类公司业务数据披露。
 - AKShare 可作为低成本验证和补充源，但不能作为重大事件主信息源。
 
+### TuShare 实测结果
+
+测试环境：
+
+- 日期：2026-05-29 至 2026-05-30
+- 服务器：华为云 `tradingagents-backend` 容器
+- TuShare 版本：1.4.29
+- 验证脚本：`scripts/verify_tushare_event_coverage.py`
+- token 来源：项目数据库 `system_configs.data_source_configs`，脚本只显示来源，不打印 token
+
+接口权限结果：
+
+- `daily` 可访问，`000001.SZ` 在 2026-05-28 至 2026-05-29 返回 2 行 A 股日线。
+- `news` 可访问，`sina`、`10jqka`、`eastmoney`、`jinrongjie`、`wallstreetcn`、`cls`、`yicai` 等来源有返回数据；`yuncaijing`、`fenghuang` 本次返回 0 行。
+- `anns_d` 可访问，2026-05-28 返回 1559 行公告，2026-05-29 返回 1614 行公告。
+- `us_daily` 可访问，`DELL` 在 2026-05-28 返回 1 行美股日线；`DELL.N` 返回空。
+- `us_income` 可访问，`DELL` 返回 121 行美股利润表数据，含 2026/Q1 单季报。
+- `us_fina_indicator` 可访问，`DELL` 返回 5 行美股财务指标，含 2026/Q1。
+- `us_basic` 可访问但触发 1 次/分钟频率限制，需要在生产采集器里做限速。
+
+样例事件结果：
+
+- MiniMax 业务数据：`10jqka`、`eastmoney`、`yicai` 命中 2026-05-28 业务数据披露，包含企业和开发者客户超百万、较半年前增长 5 倍、全球用户约 3 亿、ARR 两个月增长超过 100% 等信息。
+- Dell 季报和异动：`10jqka`、`eastmoney`、`jinrongjie`、`wallstreetcn`、`cls`、`yicai` 命中戴尔科技盘后或盘前大涨、Q1 业绩超预期、AI 服务器收入指引上调、投行目标价上调等信息。
+- 大基金减持芯片股：`eastmoney`、`10jqka`、`jinrongjie`、`cls`、`yicai` 命中沪硅产业、德邦科技、中芯国际等相关减持或权益变动信息。
+
+含义：
+
+- 你当前 TuShare token 已能覆盖一部分关键事件文本、A 股公告、美股行情和美股财务结构化数据。
+- TuShare 对样例事件的覆盖比先前假设更好，可以作为第一阶段数据接入的重要来源。
+- 美股代码需要统一映射，TuShare 本次对 `DELL` 有数据、对 `DELL.N` 返回空，不能直接沿用所有供应商代码。
+- 新闻覆盖仍需交叉验证，TuShare 的中文快讯命中事件，不等于具备公司 IR、SEC 原文、港交所权益披露、卖方研报全文和盘后逐笔行情。
+- 生产环境必须处理接口频率限制，尤其是 `us_basic` 这类低频接口。
+
 ### Dell Technologies 季报与盘后异动
 
 事件：2026-05-28，Dell Technologies 发布截至 2026-05-01 的 2027 财年第一财季报告，中文媒体报道其盘后股价一度大涨近 40%，市值约 2059 亿美元。

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Verify whether TuShare endpoints contain required event data.
 
-The script reads TUSHARE_TOKEN from the environment and never prints it.
-It is read-only and intended for checking permissions and keyword coverage
-before selecting TuShare as a production data source.
+The script reads a Tushare token from TUSHARE_TOKEN or the project database
+and never prints it. It is read-only and intended for checking permissions
+and keyword coverage before selecting TuShare as a production data source.
 """
 
 from __future__ import annotations
@@ -52,7 +52,61 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-news", action="store_true")
     parser.add_argument("--skip-announcements", action="store_true")
     parser.add_argument("--skip-daily", action="store_true")
+    parser.add_argument(
+        "--token-source",
+        choices=["auto", "env", "database"],
+        default="auto",
+        help="Where to read Tushare token from. auto uses env first, then project database.",
+    )
     return parser.parse_args()
+
+
+def _valid_token(value: str | None) -> bool:
+    if not value:
+        return False
+    text = str(value).strip().strip('"').strip("'")
+    if not text or len(text) <= 10:
+        return False
+    if text.startswith("your_") or text.startswith("your-"):
+        return False
+    if text.endswith("_here") or text.endswith("-here"):
+        return False
+    if "..." in text:
+        return False
+    return True
+
+
+def _read_token_from_database() -> str | None:
+    try:
+        from pymongo import MongoClient
+        from app.core.config import settings
+
+        client = MongoClient(settings.MONGO_URI)
+        db = client[settings.MONGO_DB]
+        doc = db.system_configs.find_one({"is_active": True}, sort=[("version", -1)])
+        if not doc:
+            return None
+        for data_source in doc.get("data_source_configs", []):
+            name = str(data_source.get("name", ""))
+            source_type = str(data_source.get("type", ""))
+            token = data_source.get("api_key")
+            if "tushare" in name.lower() or "tushare" in source_type.lower():
+                if _valid_token(token):
+                    return str(token).strip().strip('"').strip("'")
+    except Exception as exc:  # pragma: no cover - diagnostic script
+        print(f"[token database] error {type(exc).__name__}: {exc}")
+    return None
+
+
+def read_token(token_source: str) -> tuple[str | None, str]:
+    env_token = os.getenv("TUSHARE_TOKEN")
+    if token_source in {"auto", "env"} and _valid_token(env_token):
+        return str(env_token).strip().strip('"').strip("'"), "env"
+    if token_source in {"auto", "database"}:
+        db_token = _read_token_from_database()
+        if _valid_token(db_token):
+            return db_token, "database"
+    return None, "none"
 
 
 def yyyymmdd(value: str) -> str:
@@ -95,12 +149,12 @@ def print_matches(df, source: str, keywords: list[str], max_rows: int) -> None:
 
 
 def main() -> int:
-    token = os.getenv("TUSHARE_TOKEN")
+    args = parse_args()
+    token, token_source = read_token(args.token_source)
     if not token:
-        print("ERROR: TUSHARE_TOKEN is not set in environment.")
+        print("ERROR: no valid Tushare token found from requested source.")
         return 2
 
-    args = parse_args()
     keywords = args.keywords or DEFAULT_KEYWORDS
     start_raw, end_raw = default_dates()
     start_raw = args.start_date or start_raw
@@ -116,7 +170,7 @@ def main() -> int:
     pro = ts.pro_api(token)
 
     print("TuShare event coverage verification")
-    print("token: (hidden)")
+    print(f"token: (hidden, source={token_source})")
     print("keywords:", ", ".join(keywords))
     print("date_range:", start_day, "->", end_day)
     print()

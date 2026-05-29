@@ -12,7 +12,10 @@
 - [x] 已新增 TuShare 重大事件覆盖验证脚本：`scripts/verify_tushare_event_coverage.py`
 - [x] 已用 AKShare 1.18.64 在服务器验证 Dell 事件，命中东方财富/新浪/富途快讯和 DELL 美股财报结构化数据。
 - [x] 已用 AKShare 1.18.64 在服务器测试 MiniMax 关键词，本次测试范围内未命中。
-- [ ] 已用真实 TuShare token 验证新闻、公告、研报、美股行情和美股财务权限。
+- [x] 已用真实 TuShare token 在华为云 `tradingagents-backend` 容器验证 A 股日线、新闻快讯和上市公司公告权限。
+- [x] 已用真实 TuShare token 在华为云 `tradingagents-backend` 容器验证美股日线、美股利润表和美股财务指标权限。
+- [x] 已验证 TuShare 新闻源可命中 MiniMax 2026-05-28 业务数据、Dell 季报异动、大基金减持芯片股等样例事件。
+- [ ] 已用真实 TuShare token 验证研报、港股公告、港交所权益披露和美股盘后行情权限。
 - [ ] 已用当前 AKShare 版本继续验证 A 股公告、港股权益披露相关接口。
 - [ ] 已确认 Wind/Choice/iFinD 是否覆盖美股财报、盘后行情、研报、公告、股东增减持和港交所权益披露。
 
@@ -20,7 +23,7 @@
 
 - [x] Dell Technologies 2026-05-28 季报和盘后异动已用 AKShare 回测，结论为部分覆盖。
 - [x] MiniMax 2026-05-28 业务数据披露已用 AKShare 回测，结论为测试范围内未命中。
-- [ ] 2026 年大基金减持半导体相关股票已用候选数据源回测。
+- [x] 2026 年大基金减持半导体相关股票已用 TuShare 新闻源回测，命中东方财富、同花顺、金融界、财联社、第一财经等来源。
 
 ## 字段要求
 
