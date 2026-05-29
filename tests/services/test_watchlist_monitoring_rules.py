@@ -33,6 +33,31 @@ def test_evaluate_symbol_detects_position_stop_loss_risk():
     assert any("止损" in reason for reason in result["reasons"])
 
 
+def test_evaluate_symbol_ignores_sentinel_minus_100_without_price():
+    result = evaluate_symbol(
+        quote={"price": None, "close": None, "change_percent": -100},
+        klines=[],
+        has_position=False,
+    )
+
+    assert result["triggered"] is False
+    assert result["metrics"]["current_price"] is None
+    assert result["metrics"]["change_percent"] is None
+    assert result["reasons"] == []
+
+
+def test_evaluate_symbol_recomputes_change_from_previous_close():
+    result = evaluate_symbol(
+        quote={"price": 134.79, "pre_close": 135.98, "change_percent": -100},
+        klines=[],
+        has_position=False,
+    )
+
+    assert result["metrics"]["current_price"] == 134.79
+    assert round(result["metrics"]["change_percent"], 2) == -0.88
+    assert result["triggered"] is False
+
+
 def test_authoritative_news_scores_higher():
     item = {
         "source": "Benzinga",

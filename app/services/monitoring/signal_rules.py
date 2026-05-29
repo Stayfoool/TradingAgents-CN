@@ -69,6 +69,37 @@ def _volume(item: Dict[str, Any]) -> Optional[float]:
     return _safe_float(item.get("volume") or item.get("vol"))
 
 
+def _valid_price(value: Any) -> Optional[float]:
+    price = _safe_float(value)
+    if price is None or price <= 0:
+        return None
+    return price
+
+
+def _valid_change_percent(value: Any) -> Optional[float]:
+    change = _safe_float(value)
+    if change is None:
+        return None
+    # A legitimate daily move near -100% is implausible for normal equities and
+    # usually means the quote provider emitted a sentinel with missing price data.
+    if change <= -99.0 or change >= 99.0:
+        return None
+    return change
+
+
+def _derive_change_percent(quote: Dict[str, Any], current_price: Optional[float]) -> Optional[float]:
+    previous_close = _valid_price(
+        quote.get("previous_close")
+        or quote.get("pre_close")
+        or quote.get("prev_close")
+    )
+    if current_price is not None and previous_close:
+        return (current_price / previous_close - 1) * 100
+    if current_price is None:
+        return None
+    return _valid_change_percent(quote.get("change_percent") or quote.get("pct_chg"))
+
+
 def normalize_klines(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     def key(row: Dict[str, Any]) -> str:
         return str(row.get("trade_date") or row.get("time") or row.get("date") or "")
@@ -239,8 +270,8 @@ def evaluate_symbol(
 ) -> Dict[str, Any]:
     rows = normalize_klines(klines)
     latest = rows[-1] if rows else {}
-    current_price = _safe_float(quote.get("price") or quote.get("close") or _close(latest))
-    change_percent = _safe_float(quote.get("change_percent") or quote.get("pct_chg"))
+    current_price = _valid_price(quote.get("price") or quote.get("close") or _close(latest))
+    change_percent = _derive_change_percent(quote, current_price)
     latest_volume = _safe_float(quote.get("volume") or _volume(latest))
 
     closes = [_close(row) for row in rows if _close(row) is not None]

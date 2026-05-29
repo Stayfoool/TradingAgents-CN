@@ -117,6 +117,7 @@ class WatchlistMonitorService:
             "low": quote.get("low"),
             "volume": quote.get("volume"),
             "amount": quote.get("amount"),
+            "pre_close": quote.get("pre_close"),
             "change_percent": quote.get("pct_chg"),
             "trade_date": quote.get("trade_date"),
             "source": quote.get("data_source") or "market_quotes",
