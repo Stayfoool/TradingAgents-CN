@@ -9,6 +9,7 @@
 - [x] 已确认 TuShare 上市公司公告 `anns_d` 是单独权限。
 - [x] 已确认 AKShare 文档包含个股新闻、财经快讯、巨潮公告、东方财富公告等接口。
 - [x] 已新增 AKShare 重大事件覆盖验证脚本：`scripts/verify_akshare_event_coverage.py`
+- [x] 已新增 TuShare 重大事件覆盖验证脚本：`scripts/verify_tushare_event_coverage.py`
 - [x] 已用 AKShare 1.18.64 在服务器验证 Dell 事件，命中东方财富/新浪/富途快讯和 DELL 美股财报结构化数据。
 - [x] 已用 AKShare 1.18.64 在服务器测试 MiniMax 关键词，本次测试范围内未命中。
 - [ ] 已用真实 TuShare token 验证新闻、公告、研报、美股行情和美股财务权限。
