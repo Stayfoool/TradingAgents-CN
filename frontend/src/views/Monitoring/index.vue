@@ -35,11 +35,76 @@
       </el-col>
       <el-col :xs="24" :sm="8">
         <div class="metric-panel">
-          <span class="metric-label">监控报告</span>
-          <strong>{{ reportTotal }}</strong>
+          <span class="metric-label">最近扫描</span>
+          <strong>{{ latestScannedCount }}</strong>
         </div>
       </el-col>
     </el-row>
+
+    <el-card v-if="lastRun" shadow="never" class="section-card">
+      <template #header>
+        <div class="section-header">
+          <span>最近一次扫描</span>
+          <span class="muted">{{ formatTime(lastRun.completed_at || lastRun.created_at) }}</span>
+        </div>
+      </template>
+
+      <el-row :gutter="12" class="run-summary">
+        <el-col :xs="12" :sm="6">
+          <div class="run-stat">
+            <span>扫描标的</span>
+            <strong>{{ latestScannedCount }}</strong>
+          </div>
+        </el-col>
+        <el-col :xs="12" :sm="6">
+          <div class="run-stat">
+            <span>触发信号</span>
+            <strong>{{ lastRunTriggeredCount }}</strong>
+          </div>
+        </el-col>
+        <el-col :xs="12" :sm="6">
+          <div class="run-stat">
+            <span>无信号</span>
+            <strong>{{ lastRunNoSignalCount }}</strong>
+          </div>
+        </el-col>
+        <el-col :xs="12" :sm="6">
+          <div class="run-stat">
+            <span>错误</span>
+            <strong>{{ lastRun.error_count ?? 0 }}</strong>
+          </div>
+        </el-col>
+      </el-row>
+
+      <el-table v-if="lastRun.scanned_items?.length" :data="lastRun.scanned_items" size="small" class="scan-table">
+        <el-table-column prop="symbol" label="股票" min-width="130">
+          <template #default="{ row }">
+            <div class="symbol-cell">
+              <strong>{{ row.symbol }}</strong>
+              <span>{{ row.stock_name || marketLabel(row.market) }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="110">
+          <template #default="{ row }">
+            <el-tag :type="scanStatusTagType(row.status)" effect="plain">
+              {{ scanStatusLabel(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="signal_type" label="信号" width="120">
+          <template #default="{ row }">{{ signalLabel(row.signal_type) }}</template>
+        </el-table-column>
+        <el-table-column prop="change_percent" label="涨跌幅" width="100">
+          <template #default="{ row }">{{ formatPercent(row.change_percent) }}</template>
+        </el-table-column>
+        <el-table-column label="说明" min-width="240" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ scanItemDescription(row) }}
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <el-tabs v-model="activeTab" class="monitoring-tabs">
       <el-tab-pane label="监控报告" name="reports">
@@ -297,6 +362,7 @@ import {
 } from '@element-plus/icons-vue'
 import {
   type MonitoringReport,
+  type MonitoringRunSummary,
   type PositionItem,
   type PositionPayload,
   type WatchMarket,
@@ -316,7 +382,7 @@ const reportsLoading = ref(false)
 const watchlist = ref<WatchlistItem[]>([])
 const positions = ref<PositionItem[]>([])
 const reports = ref<MonitoringReport[]>([])
-const reportTotal = ref(0)
+const lastRun = ref<MonitoringRunSummary | null>(null)
 
 const watchDialogVisible = ref(false)
 const positionDialogVisible = ref(false)
@@ -356,6 +422,24 @@ const positionForm = reactive<PositionPayload>({
 })
 
 const hasTargets = computed(() => watchlist.value.length > 0 || positions.value.length > 0)
+const latestScannedCount = computed(() => {
+  if (!lastRun.value) return '-'
+  return lastRun.value.scanned_count ?? lastRun.value.target_count ?? 0
+})
+const lastRunNoSignalCount = computed(() => {
+  if (!lastRun.value) return 0
+  if (typeof lastRun.value.no_signal_count === 'number') return lastRun.value.no_signal_count
+  const scanned = lastRun.value.scanned_items || []
+  if (scanned.length) return scanned.filter(item => item.status === 'no_signal').length
+  return Math.max((lastRun.value.target_count || 0) - (lastRun.value.report_count || 0) - (lastRun.value.error_count || 0), 0)
+})
+const lastRunTriggeredCount = computed(() => {
+  if (!lastRun.value) return 0
+  if (typeof lastRun.value.triggered_count === 'number') return lastRun.value.triggered_count
+  const scanned = lastRun.value.scanned_items || []
+  if (scanned.length) return scanned.filter(item => item.status === 'triggered').length
+  return lastRun.value.report_count || 0
+})
 
 onMounted(() => {
   refreshAll()
@@ -364,7 +448,7 @@ onMounted(() => {
 async function refreshAll() {
   loading.value = true
   try {
-    await Promise.all([loadWatchlist(), loadPositions(), loadReports()])
+    await Promise.all([loadWatchlist(), loadPositions(), loadReports(), loadRuns()])
   } finally {
     loading.value = false
   }
@@ -395,10 +479,14 @@ async function loadReports() {
   try {
     const res = await watchlistApi.listReports(50, 0)
     reports.value = res.data.items || []
-    reportTotal.value = res.data.total || 0
   } finally {
     reportsLoading.value = false
   }
+}
+
+async function loadRuns() {
+  const res = await watchlistApi.listRuns(1, 0)
+  lastRun.value = res.data.items?.[0] || null
 }
 
 function resetWatchForm() {
@@ -546,7 +634,20 @@ async function runMonitoring() {
       news_days: 7,
       force_refresh: false
     })
-    ElMessage.success(`扫描完成：${res.data.report_count} 条报告，${res.data.error_count} 个错误`)
+    lastRun.value = {
+      user_id: '',
+      status: 'completed',
+      target_count: res.data.target_count,
+      scanned_count: res.data.scanned_count,
+      triggered_count: res.data.triggered_count,
+      report_count: res.data.report_count,
+      no_signal_count: res.data.no_signal_count,
+      error_count: res.data.error_count,
+      errors: res.data.errors,
+      scanned_items: res.data.scanned_items,
+      completed_at: new Date().toISOString()
+    }
+    ElMessage.success(`扫描完成：扫描 ${res.data.scanned_count} 家，触发 ${res.data.triggered_count} 家，无信号 ${res.data.no_signal_count} 家，错误 ${res.data.error_count} 个`)
     activeTab.value = 'reports'
     await loadReports()
   } finally {
@@ -589,6 +690,32 @@ function signalTagType(type?: string) {
   return 'info'
 }
 
+function scanStatusLabel(status?: string) {
+  const map: Record<string, string> = {
+    triggered: '已触发',
+    no_signal: '无信号',
+    error: '错误',
+    scanning: '扫描中'
+  }
+  return map[status || ''] || status || '-'
+}
+
+function scanStatusTagType(status?: string) {
+  if (status === 'triggered') return 'warning'
+  if (status === 'error') return 'danger'
+  if (status === 'no_signal') return 'info'
+  return 'info'
+}
+
+function scanItemDescription(row: any) {
+  if (row.error) return row.error
+  if (row.report_skipped_reason) return row.report_skipped_reason
+  if (row.reasons?.length) return row.reasons[0]
+  if (row.data_gaps?.length) return row.data_gaps[0]
+  if (row.status === 'no_signal') return '本次扫描未达到价格、趋势或权威证据触发阈值'
+  return '-'
+}
+
 function formatTime(value?: string) {
   if (!value) return '-'
   try {
@@ -601,6 +728,11 @@ function formatTime(value?: string) {
 function formatNumber(value?: number) {
   if (value === undefined || value === null) return '-'
   return Number(value).toFixed(2)
+}
+
+function formatPercent(value?: number) {
+  if (value === undefined || value === null) return '-'
+  return `${Number(value).toFixed(2)}%`
 }
 </script>
 
@@ -642,6 +774,37 @@ function formatNumber(value?: number) {
 
 .summary-row {
   row-gap: 12px;
+}
+
+.muted {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.run-summary {
+  row-gap: 12px;
+}
+
+.run-stat {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  span {
+    color: var(--el-text-color-secondary);
+    font-size: 12px;
+  }
+
+  strong {
+    font-size: 22px;
+  }
+}
+
+.scan-table {
+  margin-top: 14px;
 }
 
 .metric-panel {

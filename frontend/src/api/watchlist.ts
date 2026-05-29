@@ -77,13 +77,51 @@ export interface MonitoringRunRequest {
   force_refresh?: boolean
 }
 
+export interface MonitoringScanItem {
+  symbol: string
+  stock_name?: string
+  market: WatchMarket
+  status: 'scanning' | 'triggered' | 'no_signal' | 'error'
+  signal_type: string
+  severity?: string
+  score: number
+  triggered: boolean
+  reasons?: string[]
+  metrics?: Record<string, any>
+  current_price?: number
+  change_percent?: number
+  data_gaps?: string[]
+  report_skipped_reason?: string
+  error?: string
+}
+
 export interface MonitoringRunResult {
   run_id: string
   target_count: number
+  scanned_count: number
+  triggered_count: number
   report_count: number
+  no_signal_count: number
   error_count: number
+  scanned_items: MonitoringScanItem[]
   reports: MonitoringReport[]
   errors: Array<{ symbol: string; market: string; error: string }>
+}
+
+export interface MonitoringRunSummary {
+  user_id: string
+  status: string
+  parameters?: Record<string, any>
+  target_count?: number
+  scanned_count?: number
+  triggered_count?: number
+  report_count?: number
+  no_signal_count?: number
+  error_count?: number
+  errors?: Array<{ symbol: string; market: string; error: string }>
+  scanned_items?: MonitoringScanItem[]
+  created_at?: string
+  completed_at?: string
 }
 
 export const watchlistApi = {
@@ -133,6 +171,13 @@ export const watchlistApi = {
 
   listReports(limit = 50, skip = 0) {
     return ApiClient.get<{ items: MonitoringReport[]; total: number }>('/api/monitoring/reports', {
+      limit,
+      skip
+    })
+  },
+
+  listRuns(limit = 5, skip = 0) {
+    return ApiClient.get<{ items: MonitoringRunSummary[]; total: number }>('/api/monitoring/runs', {
       limit,
       skip
     })

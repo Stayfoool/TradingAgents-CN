@@ -46,13 +46,18 @@ Date: 2026-05-28
 - [x] Add report builder with source-cited facts.
 - [x] Register daily scheduler job.
 - [x] Add notification creation for high-priority signals.
-- [ ] Add minimal UI for watchlist and monitoring reports.
+- [x] Add minimal UI for watchlist and monitoring reports.
+- [x] Monitoring UI distinguishes scanned targets from triggered reports.
+- [x] `max_deep_analysis` limits generated reports only; it must not truncate per-symbol scan coverage.
 
 ## Acceptance Criteria
 
 - [x] Manual watchlist scan works in deployed backend.
 - [x] Daily scheduled scan is registered in the deployed backend.
 - [ ] Daily scheduled scan is visible in scheduler UI.
+- [x] Manual scan response returns `target_count`, `scanned_count`, `triggered_count`, `report_count`, `no_signal_count`, and per-symbol `scanned_items`.
+- [x] Historical scan list returns enough fields for the UI to show scanned, triggered, no-signal, and error counts after refresh.
+- [x] Each enabled target is represented in `scanned_items` unless target loading itself fails.
 - [ ] Reports include price/volume/trend evidence.
 - [x] Reports include authoritative media evidence or explicit not-found status.
 - [x] Quote/K-line provider failure does not abort the whole ticker; reports can record explicit data gaps.

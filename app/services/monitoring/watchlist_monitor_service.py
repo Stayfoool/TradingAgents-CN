@@ -249,12 +249,22 @@ class WatchlistMonitorService:
         targets = await self._load_targets(user_id, request)
         reports: List[Dict[str, Any]] = []
         errors: List[Dict[str, Any]] = []
+        scanned_items: List[Dict[str, Any]] = []
 
         for target in targets:
-            if len(reports) >= request.max_deep_analysis:
-                break
             symbol = target["symbol"]
             market = target["market"]
+            scanned_item: Dict[str, Any] = {
+                "symbol": symbol,
+                "stock_name": target.get("stock_name") or symbol,
+                "market": market,
+                "status": "scanning",
+                "signal_type": "no_action",
+                "score": 0.0,
+                "triggered": False,
+                "reasons": [],
+                "data_gaps": [],
+            }
             try:
                 data_gaps: List[str] = []
                 quote: Dict[str, Any] = {}
@@ -266,6 +276,7 @@ class WatchlistMonitorService:
                     gap = f"行情数据获取失败：{e}"
                     logger.warning("Monitoring quote unavailable for %s:%s: %s", market, symbol, e)
                     data_gaps.append(gap)
+                    scanned_item["data_gaps"] = data_gaps
 
                 try:
                     klines = await self._get_klines(market, symbol, request.lookback_days, request.force_refresh)
@@ -273,6 +284,7 @@ class WatchlistMonitorService:
                     gap = f"K线数据获取失败：{e}"
                     logger.warning("Monitoring kline unavailable for %s:%s: %s", market, symbol, e)
                     data_gaps.append(gap)
+                    scanned_item["data_gaps"] = data_gaps
                 has_position = bool(target.get("position"))
                 price_signal = evaluate_symbol(
                     quote=quote,
@@ -291,7 +303,24 @@ class WatchlistMonitorService:
                 )
                 evidence_signal = evaluate_evidence_signal(evidence=evidence, has_position=has_position)
                 signal = merge_signals(price_signal, evidence_signal)
+                metrics = signal.get("metrics") or {}
+                scanned_item.update({
+                    "stock_name": target.get("stock_name") or quote.get("name") or symbol,
+                    "status": "triggered" if signal.get("triggered") else "no_signal",
+                    "signal_type": signal.get("signal_type", "no_action"),
+                    "severity": signal.get("severity", "info"),
+                    "score": signal.get("score", 0.0),
+                    "triggered": bool(signal.get("triggered")),
+                    "reasons": signal.get("reasons") or [],
+                    "metrics": metrics,
+                    "current_price": metrics.get("current_price"),
+                    "change_percent": metrics.get("change_percent"),
+                    "data_gaps": data_gaps,
+                })
                 if not signal.get("triggered"):
+                    continue
+                if len(reports) >= request.max_deep_analysis:
+                    scanned_item["report_skipped_reason"] = "已达到本次详细报告生成上限"
                     continue
 
                 report = build_report(
@@ -309,17 +338,31 @@ class WatchlistMonitorService:
                 reports.append(report)
             except Exception as e:
                 logger.exception("Monitoring failed for %s:%s", market, symbol)
-                errors.append({"symbol": symbol, "market": market, "error": str(e)})
+                error_doc = {"symbol": symbol, "market": market, "error": str(e)}
+                errors.append(error_doc)
+                scanned_item.update({
+                    "status": "error",
+                    "error": str(e),
+                    "triggered": False,
+                })
+            finally:
+                scanned_items.append(scanned_item)
 
         completed_at = now_tz()
+        triggered_count = sum(1 for item in scanned_items if item.get("status") == "triggered")
+        no_signal_count = sum(1 for item in scanned_items if item.get("status") == "no_signal")
         await db.monitoring_runs.update_one(
             {"_id": result.inserted_id},
             {"$set": {
                 "status": "completed" if not errors else "partial_success",
                 "target_count": len(targets),
+                "scanned_count": len(scanned_items),
+                "triggered_count": triggered_count,
                 "report_count": len(reports),
+                "no_signal_count": no_signal_count,
                 "error_count": len(errors),
                 "errors": errors,
+                "scanned_items": scanned_items,
                 "completed_at": completed_at,
                 "updated_at": completed_at,
             }},
@@ -328,8 +371,12 @@ class WatchlistMonitorService:
         return {
             "run_id": run_id,
             "target_count": len(targets),
+            "scanned_count": len(scanned_items),
+            "triggered_count": triggered_count,
             "report_count": len(reports),
+            "no_signal_count": no_signal_count,
             "error_count": len(errors),
+            "scanned_items": scanned_items,
             "reports": reports,
             "errors": errors,
         }
