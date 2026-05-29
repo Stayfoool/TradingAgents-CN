@@ -1,0 +1,96 @@
+name: Quality Gates
+
+on:
+  push:
+    branches:
+      - main
+      - dev/custom-stock-agent
+    paths:
+      - ".github/workflows/quality-gates.yml"
+      - "app/**"
+      - "tradingagents/**"
+      - "frontend/**"
+      - "scripts/validation/**"
+      - "Dockerfile*"
+      - "pyproject.toml"
+      - "README.md"
+  pull_request:
+    branches:
+      - main
+      - dev/custom-stock-agent
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-monitoring-smoke:
+    name: Backend monitoring smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Run monitoring quality gate
+        run: python scripts/validation/monitoring_quality_gate.py
+
+  frontend-build:
+    name: Frontend type-check and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      COREPACK_ENABLE_AUTO_PIN: "0"
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile --production=false --network-timeout 300000
+
+      - name: Type-check frontend
+        run: yarn type-check
+
+      - name: Build frontend assets
+        run: yarn vite build
+
+  frontend-docker-build:
+    name: Frontend Docker build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+      - frontend-build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build frontend Docker image
+        run: docker build --file Dockerfile.frontend --tag tradingagents-frontend:quality .
