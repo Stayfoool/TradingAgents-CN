@@ -8,9 +8,9 @@ Date: 2026-06-01
 | --- | --- | --- | --- |
 | SS-1 | 方案文档 | Done | `docs/implementation/smart-stock-screening-plan.md` 已创建。 |
 | SS-2 | 执行清单 | Done | 当前 checklist 已创建。 |
-| SS-3 | DSL schema | Not Started | 定义 Pydantic 模型，覆盖 universe、conditions、sort、limit、as_of。 |
-| SS-4 | 字段/指标注册表 | Not Started | 建立字段来源、类型、可用操作符、是否可动态计算。 |
-| SS-5 | DSL validator | Not Started | 校验字段、操作符、日期窗口、股票池、排序。 |
+| SS-3 | DSL schema | Done | `app/services/smart_screening/schema.py` 已定义 Pydantic DSL，覆盖 universe、conditions、sort、limit、as_of。 |
+| SS-4 | 字段/指标注册表 | Done | `app/services/smart_screening/registry.py` 已定义字段来源、类型、可用操作符、执行模式。 |
+| SS-5 | DSL validator | Done | `app/services/smart_screening/validator.py` 已校验字段、操作符、日期窗口、排序和文本事件未来数据。 |
 | SS-6 | Execution planner | Not Started | 输出 `historical_factor` / `dynamic_price_calc` / `text_event_search` 等执行模式。 |
 | SS-7 | `run_stock_screening_by_dsl` | Not Started | 受控 Python 工具，接收 DSL 并返回候选股和证据。 |
 | SS-8 | 固定样例数据 | Not Started | 构造小型行情、财务、文本事件样例，避免依赖外部 API。 |
@@ -26,9 +26,9 @@ Date: 2026-06-01
 
 ## Phase 1: Backend Core
 
-- [ ] 定义 DSL Pydantic schema。
-- [ ] 定义字段/指标注册表。
-- [ ] 实现 DSL validator。
+- [x] 定义 DSL Pydantic schema。
+- [x] 定义字段/指标注册表。
+- [x] 实现 DSL validator。
 - [ ] 实现 execution planner。
 - [ ] 实现 `run_stock_screening_by_dsl(dsl)` 最小版本。
 - [ ] 增加固定样例数据 fixture。
@@ -63,6 +63,7 @@ Date: 2026-06-01
 
 ## Phase 5: Quality Gates
 
+- [x] DSL schema / registry / validator quality tests。
 - [ ] DSL golden tests。
 - [ ] Mongo 查询构造测试。
 - [ ] 固定样例数据筛选测试。
@@ -81,3 +82,7 @@ Date: 2026-06-01
 - [x] 第一版不做 `stock_factor_latest` 和 `stock_text_signals_latest`。
 - [x] 现有 analysts 只用于候选股 Top N 深度分析，不用于全市场逐只扫描。
 
+## Verification Log
+
+- [x] `UV_CACHE_DIR=/private/tmp/tradingagents-uv-cache uv run --no-project --with-requirements requirements-quality.txt python -m pytest -q tests/quality/test_smart_screening_dsl_quality.py` -> `7 passed`
+- [x] `UV_CACHE_DIR=/private/tmp/tradingagents-uv-cache uv run --no-project --with-requirements requirements-quality.txt python scripts/validation/quality_verify.py --profile backend` -> `13 passed, 1 warning`
