@@ -11,6 +11,122 @@
       </p>
     </div>
 
+    <el-card class="smart-panel" shadow="never">
+      <template #header>
+        <div class="card-header">
+          <span>智能选股</span>
+          <el-tag type="success" size="small" effect="plain">自然语言 → DSL → 受控执行</el-tag>
+        </div>
+      </template>
+
+      <div class="smart-input-row">
+        <el-input
+          v-model="smartQuery"
+          type="textarea"
+          :rows="3"
+          maxlength="2000"
+          show-word-limit
+          placeholder="例如：半导体近5日涨幅排名前50%，量比>1.2，换手率>3%，收盘价>5日线>10日线，非ST，并有营收增长研报"
+        />
+        <div class="smart-actions">
+          <el-date-picker
+            v-model="smartAsOf"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="截至日期"
+            style="width: 150px"
+          />
+          <el-switch
+            v-model="smartUseDatabase"
+            active-text="使用数据库"
+            inactive-text="样例数据"
+          />
+          <el-button type="primary" :loading="smartLoading" @click="performSmartScreening">
+            <el-icon><Search /></el-icon>
+            智能筛选
+          </el-button>
+        </div>
+      </div>
+
+      <div v-if="smartResult" class="smart-summary">
+        <el-statistic title="候选股" :value="smartResult.total" />
+        <el-statistic title="证据" :value="smartEvidenceCount" />
+        <el-statistic title="执行步骤" :value="smartResult.plan?.steps?.length || 0" />
+        <el-tag :type="smartResult.audit?.passed ? 'success' : 'warning'" effect="plain">
+          审计{{ smartResult.audit?.passed ? '通过' : '需复核' }}
+        </el-tag>
+      </div>
+
+      <el-alert
+        v-if="smartResult?.synthesis?.summary"
+        class="smart-synthesis"
+        type="info"
+        :closable="false"
+        show-icon
+      >
+        <template #title>{{ smartResult.synthesis.summary }}</template>
+        <div v-if="smartResult.synthesis.key_reasons?.length" class="synthesis-reasons">
+          <el-tag
+            v-for="reason in smartResult.synthesis.key_reasons.slice(0, 4)"
+            :key="reason"
+            size="small"
+            effect="plain"
+          >
+            {{ reason }}
+          </el-tag>
+        </div>
+      </el-alert>
+
+      <el-tabs v-if="smartResult" class="smart-tabs">
+        <el-tab-pane label="候选股">
+          <el-table :data="smartResult.items" stripe style="width: 100%">
+            <el-table-column prop="symbol" label="代码" width="110" />
+            <el-table-column prop="name" label="名称" width="140" />
+            <el-table-column prop="industry" label="行业" width="110" />
+            <el-table-column prop="score" label="分数" width="90" align="right">
+              <template #default="{ row }">{{ row.score.toFixed(1) }}</template>
+            </el-table-column>
+            <el-table-column label="关键指标" min-width="220">
+              <template #default="{ row }">
+                <div class="metric-line">
+                  5日 {{ formatSmartNumber(row.data.return_5d) }}% · 量比 {{ formatSmartNumber(row.data.volume_ratio) }} · 换手 {{ formatSmartNumber(row.data.turnover_rate) }}%
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="命中理由" min-width="260">
+              <template #default="{ row }">
+                <div class="reason-list">
+                  <el-tag
+                    v-for="reason in row.reasons.slice(0, 3)"
+                    :key="reason"
+                    size="small"
+                    effect="plain"
+                  >
+                    {{ reason }}
+                  </el-tag>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="证据">
+          <el-table :data="smartEvidenceRows" stripe style="width: 100%">
+            <el-table-column prop="symbol" label="代码" width="110" />
+            <el-table-column prop="source" label="来源" width="150" />
+            <el-table-column prop="event_date" label="日期" width="120" />
+            <el-table-column prop="title" label="标题/字段" min-width="220" />
+            <el-table-column prop="summary" label="摘要" min-width="320" show-overflow-tooltip />
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="DSL">
+          <pre class="dsl-preview">{{ JSON.stringify(smartResult.dsl || {}, null, 2) }}</pre>
+        </el-tab-pane>
+        <el-tab-pane label="执行计划">
+          <pre class="dsl-preview">{{ JSON.stringify(smartResult.plan || {}, null, 2) }}</pre>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+
     <!-- 筛选条件面板 -->
     <el-card class="filter-panel" shadow="never">
       <template #header>
@@ -363,7 +479,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, TrendCharts, Download, Star, Connection, Warning } from '@element-plus/icons-vue'
 import type { StockInfo } from '@/types/analysis'
-import { screeningApi, type FieldConfigResponse } from '@/api/screening'
+import { screeningApi, type FieldConfigResponse, type SmartScreeningRunResp } from '@/api/screening'
 import { favoritesApi } from '@/api/favorites'
 import { getCurrentDataSource } from '@/api/sync'
 import { normalizeMarketForAnalysis, exchangeCodeToMarket, getMarketByStockCode } from '@/utils/market'
@@ -375,6 +491,11 @@ const screeningResults = ref<StockInfo[]>([])
 const selectedStocks = ref<StockInfo[]>([])
 const currentPage = ref(1)
 const pageSize = ref(20)
+const smartLoading = ref(false)
+const smartQuery = ref('半导体近5日涨幅排名前50%，量比>1.2，换手率>3%，收盘价>5日线>10日线，非ST，并有营收增长研报')
+const smartAsOf = ref('2026-05-31')
+const smartUseDatabase = ref(true)
+const smartResult = ref<SmartScreeningRunResp | null>(null)
 
 // 路由 & 自选集
 const router = useRouter()
@@ -415,6 +536,24 @@ const paginatedResults = computed(() => {
   const end = start + pageSize.value
   return screeningResults.value.slice(start, end)
 })
+
+const smartEvidenceRows = computed(() => {
+  const rows: any[] = []
+  ;(smartResult.value?.items || []).forEach((item) => {
+    item.evidence.forEach((evidence) => {
+      rows.push({
+        symbol: item.symbol,
+        source: evidence.source,
+        event_date: evidence.event_date || '-',
+        title: evidence.title || evidence.field || evidence.evidence_type,
+        summary: evidence.summary || `${evidence.field || ''}=${evidence.value ?? ''}`
+      })
+    })
+  })
+  return rows
+})
+
+const smartEvidenceCount = computed(() => smartEvidenceRows.value.length)
 
 // 方法
 const performScreening = async () => {
@@ -548,6 +687,31 @@ const performScreening = async () => {
     ElMessage.error('筛选失败，请重试')
   } finally {
     screeningLoading.value = false
+  }
+}
+
+const performSmartScreening = async () => {
+  if (!smartQuery.value.trim()) {
+    ElMessage.warning('请输入智能选股条件')
+    return
+  }
+
+  smartLoading.value = true
+  try {
+    const response = await screeningApi.runSmartNaturalLanguage({
+      query: smartQuery.value,
+      as_of: smartAsOf.value || null,
+      use_database: smartUseDatabase.value,
+      include_deep_analysis_tasks: true,
+      deep_analysis_top_n: 3
+    })
+    const data = (response as any)?.data || response
+    smartResult.value = data
+    ElMessage.success(`智能筛选完成，找到 ${data.total || 0} 只候选股`)
+  } catch (error: any) {
+    ElMessage.error(error?.message || '智能筛选失败')
+  } finally {
+    smartLoading.value = false
   }
 }
 
@@ -689,6 +853,12 @@ const formatMarketCap = (marketCap: number) => {
   }
 }
 
+const formatSmartNumber = (value: any) => {
+  const numberValue = Number(value)
+  if (Number.isNaN(numberValue)) return '-'
+  return numberValue.toFixed(2)
+}
+
 const handleSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
@@ -817,6 +987,75 @@ onMounted(() => {
         gap: 16px;
         margin-top: 24px;
       }
+    }
+  }
+
+  .smart-panel {
+    margin-bottom: 24px;
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .smart-input-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .smart-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .smart-summary {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 28px;
+      padding: 16px 0 4px;
+    }
+
+    .smart-tabs {
+      margin-top: 12px;
+    }
+
+    .smart-synthesis {
+      margin-top: 12px;
+    }
+
+    .synthesis-reasons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .reason-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .metric-line {
+      white-space: normal;
+      line-height: 1.5;
+    }
+
+    .dsl-preview {
+      max-height: 360px;
+      overflow: auto;
+      padding: 12px;
+      border: 1px solid var(--el-border-color);
+      border-radius: 6px;
+      background: var(--el-fill-color-light);
+      color: var(--el-text-color-primary);
+      font-size: 12px;
+      line-height: 1.5;
     }
   }
 

@@ -7,6 +7,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
+from app.routers import smart_screening
+
 
 class MonitoringRunRequest(BaseModel):
     symbols: list[str] | None = None
@@ -88,6 +90,9 @@ def create_quality_api_app() -> FastAPI:
     async def list_runs(limit: int = 20, skip: int = 0, user: dict = Depends(_current_user)) -> dict[str, Any]:
         return _ok(data={"items": [], "total": 0})
 
+    app.include_router(smart_screening.router, prefix="/api/screening/smart", tags=["smart-screening"])
+    app.dependency_overrides[smart_screening.get_current_user] = _current_user
+
     return app
 
 
@@ -119,6 +124,7 @@ def test_openapi_contract_exposes_monitoring_coverage_fields(quality_client: Tes
     assert "/api/monitoring/watchlist/run" in schema["paths"]
     assert "/api/watchlists" in schema["paths"]
     assert "/api/portfolio/positions" in schema["paths"]
+    assert "/api/screening/smart/run-natural-language" in schema["paths"]
 
     operation = schema["paths"]["/api/monitoring/watchlist/run"]["post"]
     assert "requestBody" in operation
@@ -137,3 +143,38 @@ def test_schemathesis_can_validate_minimal_openapi_contract(quality_client: Test
         pytest.skip("Installed Schemathesis does not expose an ASGI loader")
 
     assert "/api/monitoring/watchlist/run" in schema.raw_schema["paths"]
+
+
+def test_smart_screening_api_runs_natural_language_query(quality_client: TestClient):
+    response = quality_client.post(
+        "/api/screening/smart/run-natural-language",
+        headers={"Authorization": "Bearer quality-token"},
+        json={
+            "query": "半导体近5日涨幅排名前50%，量比>1.2，换手率>3%，收盘价>5日线>10日线，非ST，并有营收增长研报",
+            "as_of": "2026-05-31",
+            "use_database": False,
+            "include_deep_analysis_tasks": True,
+            "deep_analysis_top_n": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["total"] == 1
+    assert data["items"][0]["symbol"] == "688001"
+    assert data["audit"]["passed"] is True
+    assert data["deep_analysis_tasks"][0]["analysts"] == ["market", "fundamentals", "news"]
+    assert "返回 1 只候选股" in data["synthesis"]["summary"]
+
+
+def test_smart_screening_api_exposes_data_contracts(quality_client: TestClient):
+    response = quality_client.get(
+        "/api/screening/smart/contracts",
+        headers={"Authorization": "Bearer quality-token"},
+    )
+
+    assert response.status_code == 200
+    contracts = response.json()["data"]
+    assert "stock_daily_quotes" in contracts
+    assert "close" in contracts["stock_daily_quotes"]["required_fields"]
+    assert "stock_text_events" in contracts
