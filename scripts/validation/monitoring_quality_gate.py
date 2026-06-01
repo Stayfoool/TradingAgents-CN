@@ -141,9 +141,9 @@ def _install_import_stubs() -> None:
 
 _install_import_stubs()
 
-from app.models.watchlist import MonitoringRunRequest
-from app.services.monitoring.signal_rules import evaluate_symbol
-from app.services.monitoring.watchlist_monitor_service import WatchlistMonitorService
+from app.models.watchlist import MonitoringRunRequest  # noqa: E402
+from app.services.monitoring.signal_rules import evaluate_symbol  # noqa: E402
+from app.services.monitoring.watchlist_monitor_service import WatchlistMonitorService  # noqa: E402
 
 
 class InsertResult:

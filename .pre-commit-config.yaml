@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: tradingagents-python-quality-precommit
+        name: TradingAgents Python quality pre-commit
+        entry: python scripts/validation/quality_verify.py --profile precommit
+        language: system
+        pass_filenames: false
+        always_run: true
