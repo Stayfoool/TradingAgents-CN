@@ -94,3 +94,11 @@ Date: 2026-06-01
 - [x] `UV_CACHE_DIR=/private/tmp/tradingagents-uv-cache uv run --no-project --with-requirements requirements-quality.txt python scripts/validation/quality_verify.py --profile backend` -> `20 passed, 4 warnings`
 - [x] `COREPACK_ENABLE_AUTO_PIN=0 python3 scripts/validation/quality_verify.py --profile frontend` -> type-check passed, unit `12 passed`, build passed
 - [x] `COREPACK_ENABLE_AUTO_PIN=0 python3 scripts/validation/quality_verify.py --profile frontend-e2e` -> `2 passed`
+- [x] 2026-06-02 Huawei Cloud deployment -> server fast-forwarded to `6e31030a`, backend/frontend rebuilt, containers healthy, `/api/health` returned 200.
+- [x] 2026-06-02 Cloud sample execution smoke -> natural-language DSL parsed into 7 conditions, in-memory screening returned 1 candidate with auditable evidence.
+- [x] 2026-06-02 Cloud real MongoDB smoke -> code connected to MongoDB, but `stock_daily_factors`, `stock_daily_quotes`, `stock_financial_data`, and `stock_text_events` are empty, so real-data smart screening currently returns 0 with data gap `sort field has no data: return_5d`.
+
+## Remaining Follow-Up
+
+- [ ] Backfill or build ETL for `stock_daily_quotes`, `stock_daily_factors`, `stock_financial_data`, and `stock_text_events` before relying on real-data smart screening results.
+- [ ] Run authenticated API smoke through the Web login flow after the current administrator password/token is available.

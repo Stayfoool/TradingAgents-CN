@@ -170,3 +170,14 @@ DSL 不是固定几个按钮，而是一个受控表达系统。
 - 是否先只做 watchlist + 指定行业，后做全市场。
 - 是否需要独立的智能选股页面，还是先放在现有筛选页增强。
 
+## Deployment Verification
+
+2026-06-02:
+
+- [x] Huawei Cloud server `/opt/tradingagents-cn` fast-forwarded to `6e31030a`.
+- [x] Backend and frontend images rebuilt with the existing Nginx deployment compose files.
+- [x] Containers are healthy and `/api/health` returns 200.
+- [x] Frontend build artifact contains the smart screening page and `/api/screening/smart/run-natural-language` client call.
+- [x] In-memory smart screening execution passes on the server.
+- [x] Real MongoDB execution reaches the database but returns 0 because required historical factor/text collections are currently empty.
+- [ ] Authenticated API smoke still needs the current Web administrator credentials or a user-provided token.
